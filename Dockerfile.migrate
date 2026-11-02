@@ -1,0 +1,5 @@
+# Migrations image: run as a one-off job (ECS run-task, K8s Job, or a pipeline step)
+# BEFORE rolling out the new app version. Pass FLYWAY_URL / FLYWAY_USER / FLYWAY_PASSWORD.
+FROM flyway/flyway:10
+COPY db/migration /flyway/sql
+CMD ["migrate"]

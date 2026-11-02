@@ -1,0 +1,46 @@
+# Local stack: Apache -> Tomcat -> MySQL, with migrations as a separate one-off step.
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: brightpath
+      MYSQL_USER: brightpath
+      MYSQL_PASSWORD: brightpath
+      MYSQL_ROOT_PASSWORD: rootpw
+    ports: ["3307:3306"]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-ubrightpath", "-pbrightpath"]
+      interval: 5s
+      retries: 20
+
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    environment:
+      FLYWAY_URL: jdbc:mysql://mysql:3306/brightpath?allowPublicKeyRetrieval=true&useSSL=false
+      FLYWAY_USER: brightpath
+      FLYWAY_PASSWORD: brightpath
+    depends_on:
+      mysql: { condition: service_healthy }
+
+  tomcat:
+    build:
+      context: .
+      args:
+        GIT_SHA: local
+    environment:
+      CUSTOMER_NAME: acme
+      DB_URL: jdbc:mysql://mysql:3306/brightpath?allowPublicKeyRetrieval=true&useSSL=false
+      DB_USER: brightpath
+      DB_PASSWORD: brightpath
+    ports: ["8080:8080"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  httpd:
+    build: ./httpd
+    environment:
+      TOMCAT_UPSTREAM: tomcat:8080
+    ports: ["8081:80"]
+    depends_on: [tomcat]
